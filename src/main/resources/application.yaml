@@ -23,6 +23,14 @@ spring:
   application:
     name: GATEWAY-SERVICE
   
+  # OAuth2 Resource Server Configuration for Keycloak
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/realms/myrealm
+          jwk-set-uri: http://localhost:8081/realms/myrealm/protocol/openid-connect/certs
+  
   # Redis Configuration for Regional Caching
   data:
     redis:
@@ -58,6 +66,7 @@ spring:
               maxBackoff: 500ms
               factor: 2
               basedOnPreviousValue: false
+        - name: TokenRelay
 
       # Route definitions with regional routing
       routes:
