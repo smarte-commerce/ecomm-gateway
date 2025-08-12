@@ -28,8 +28,8 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8081/realms/myrealm
-          jwk-set-uri: http://localhost:8081/realms/myrealm/protocol/openid-connect/certs
+          issuer-uri: http://localhost:8087/realms/master
+          jwk-set-uri: http://localhost:8087/realms/master/protocol/openid-connect/certs
   
   # Redis Configuration for Regional Caching
   data:
@@ -261,3 +261,15 @@ gateway:
     geo-api:
       timeout: 5s
       retry-attempts: 2
+
+# Keycloak Configuration
+keycloak:
+  server-url: http://localhost:8087
+  realm: master
+  client-id: admin-cli
+  client-secret: ""
+  admin:
+    username: admin
+    password: admin
+  direct-access-grants-enabled: true
+  token-introspect-endpoint: ${keycloak.server-url}/realms/${keycloak.realm}/protocol/openid-connect/token/introspect
