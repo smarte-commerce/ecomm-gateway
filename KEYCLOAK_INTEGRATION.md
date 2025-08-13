@@ -1,26 +1,44 @@
-# Keycloak JWT Integration for Gateway Service
+# Gateway Service - Keycloak Integration (Updated)
 
-This document describes the complete Keycloak JWT authentication and authorization setup for the Gateway Service.
+## Overview
 
-## 🎯 **Features Implemented**
+The Gateway Service has been **completely refactored** to use Keycloak's API for JWT validation and user information extraction. This provides more robust authentication and authorization handling compared to local JWT decoding.
 
-### **Authentication**
-- ✅ JWT validation using Keycloak public keys
-- ✅ Automatic token relay to downstream services
-- ✅ Token introspection and validation
-- ✅ Support for Keycloak realm roles
+## 🚀 **Key Changes Made**
 
-### **Authorization**
-- ✅ Path-based access control
-- ✅ Role-based authorization (ADMIN, MANAGER, USER)
-- ✅ HTTP method-specific permissions
-- ✅ Custom security rules per service endpoint
+### 1. **New KeycloakService** 
+`src/main/java/com/winnguyen1905/gateway/service/KeycloakService.java`
 
-### **User Context Propagation**
-- ✅ Extract user information from JWT
-- ✅ Add user context headers for downstream services
-- ✅ Regional routing with user context
-- ✅ Comprehensive logging and debugging
+- ✅ JWT token validation using Keycloak's introspection endpoint
+- ✅ JWT payload decoding for extracting user claims  
+- ✅ User information retrieval from Keycloak userinfo endpoint
+- ✅ Role extraction with filtering of default Keycloak roles
+- ✅ Reactive implementation using WebClient
+
+### 2. **Refactored JwtExtractionFilter**
+`src/main/java/com/winnguyen1905/gateway/filter/JwtExtractionFilter.java`
+
+- ✅ **Uses Keycloak API instead of local JWT processing**
+- ✅ Validates JWT tokens with Keycloak introspection endpoint
+- ✅ Extracts comprehensive user information from tokens
+- ✅ Adds enriched user context headers to downstream requests
+- ✅ Handles public endpoints that don't require authentication
+- ✅ Proper error handling for invalid/expired tokens
+
+### 3. **New KeycloakProperties Configuration**
+`src/main/java/com/winnguyen1905/gateway/config/KeycloakProperties.java`
+
+- ✅ Type-safe configuration properties
+- ✅ Maps Keycloak settings from `application.yaml`
+- ✅ Eliminates hardcoded values
+
+### 4. **Enhanced SecurityConfig**
+`src/main/java/com/winnguyen1905/gateway/config/SecurityConfig.java`
+
+- ✅ Integrated ReactiveJwtDecoder with Keycloak
+- ✅ Enhanced role-based authorization rules
+- ✅ Custom authentication and access denied handlers
+- ✅ Proper non-null annotations for JWT processing
 
 ## 🔧 **Configuration Overview**
 
@@ -81,18 +99,68 @@ spring:
 - `/admin/**` - Administrative endpoints
 - `DELETE /api/v1/**` - Deletion operations (with MANAGER)
 
-## 🏷️ **User Context Headers**
+## 🔗 **Headers Added to Downstream Requests**
 
-The gateway automatically adds these headers to downstream requests:
+The refactored gateway now adds **comprehensive user context headers** to requests forwarded to downstream services:
 
-| Header | Description | Example |
-|--------|-------------|---------|
-| `X-User-ID` | User's unique identifier (sub claim) | `f47ac10b-58cc-4372-a567-0e02b2c3d479` |
-| `X-User-Email` | User's email address | `john.doe@example.com` |
-| `X-User-Preferred-Username` | User's preferred username | `johndoe` |
-| `X-User-Name` | User's full name | `John Doe` |
-| `X-User-Roles` | Comma-separated roles | `USER,MANAGER` |
-| `Authorization` | Original JWT Bearer token | `Bearer eyJhbGciOiJSUzI1NiIs...` |
+| Header | Description | Source | Example |
+|--------|-------------|--------|---------|
+| `X-User-ID` | User's unique identifier | `sub` claim | `123e4567-e89b-12d3-a456-426614174000` |
+| `X-User-Preferred-Username` | User's preferred username | `preferred_username` claim | `john.doe` |
+| `X-User-Email` | User's email address | `email` claim | `john.doe@example.com` |
+| `X-User-Name` | User's full name | `given_name` + `family_name` | `John Doe` |
+| `X-User-Roles` | Filtered, comma-separated roles | `realm_access.roles` | `USER,MANAGER` |
+| `X-Client-ID` | OAuth2 client ID | `azp` claim | `admin-cli` |
+| `X-Token-Exp` | Token expiration timestamp | `exp` claim | `1641024000` |
+| `X-Token-Iat` | Token issued at timestamp | `iat` claim | `1641020400` |
+
+### **Role Filtering**
+The system automatically filters out default Keycloak roles:
+- `default-*` roles (e.g., `default-roles-master`)
+- `offline_access`
+- `uma_authorization`
+
+## 🔧 **Updated Configuration**
+
+### **Application.yaml Changes**
+```yaml
+# Updated Keycloak configuration to match auth service
+keycloak:
+  server-url: http://localhost:8087  # Updated port
+  realm: master                      # Updated realm
+  client-id: admin-cli
+  client-secret: ""
+  admin:
+    username: admin
+    password: admin
+  direct-access-grants-enabled: true
+  token-introspect-endpoint: ${keycloak.server-url}/realms/${keycloak.realm}/protocol/openid-connect/token/introspect
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8087/realms/master      # Updated to match auth service
+          jwk-set-uri: http://localhost:8087/realms/master/protocol/openid-connect/certs
+```
+
+### **New Dependencies Added**
+```xml
+<!-- Configuration Processor for @ConfigurationProperties -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-configuration-processor</artifactId>
+    <optional>true</optional>
+</dependency>
+
+<!-- Reactor Test for unit testing -->
+<dependency>
+    <groupId>io.projectreactor</groupId>
+    <artifactId>reactor-test</artifactId>
+    <scope>test</scope>
+</dependency>
+```
 
 ## 🎭 **Keycloak Role Mapping**
 
